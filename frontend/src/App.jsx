@@ -1,13 +1,30 @@
 
+import { useState } from 'react';
+
 import './App.css';
 
 import Header from './components/Header';
 import StatCard from './components/StatCard';
 import TrafficTable from './components/TrafficTable';
 
-import trafficData from './data/trafficData';
+import initialTrafficData from './data/trafficData';
 
 function App() {
+  // Store traffic measurements in React state
+  const [trafficData, setTrafficData] = useState(initialTrafficData);
+
+  // Store search input
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Store selected traffic status
+  const [statusFilter, setStatusFilter] = useState('All');
+
+  // Store new measurement form values
+  const [location, setLocation] = useState('');
+  const [vehicles, setVehicles] = useState('');
+  const [speed, setSpeed] = useState('');
+  const [status, setStatus] = useState('Normal');
+
   // Calculate total vehicles
   const totalVehicles = trafficData.reduce(
     (total, item) => total + item.vehicles,
@@ -15,12 +32,51 @@ function App() {
   );
 
   // Calculate average speed
-  const averageSpeed = Math.round(
-    trafficData.reduce(
-      (total, item) => total + item.speed,
-      0
-    ) / trafficData.length
-  );
+  const averageSpeed =
+    trafficData.length > 0
+      ? Math.round(
+          trafficData.reduce(
+            (total, item) => total + item.speed,
+            0
+          ) / trafficData.length
+        )
+      : 0;
+
+  // Search and filter traffic measurements
+  const filteredTrafficData = trafficData.filter((item) => {
+    const matchesSearch = item.location
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+
+    const matchesStatus =
+      statusFilter === 'All' || item.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  // Add a new traffic measurement
+  function handleAddMeasurement(event) {
+    event.preventDefault();
+
+    const newMeasurement = {
+      id: Date.now(),
+      location: location.trim(),
+      vehicles: Number(vehicles),
+      speed: Number(speed),
+      status: status,
+    };
+
+    setTrafficData((currentData) => [
+      ...currentData,
+      newMeasurement,
+    ]);
+
+    // Clear form after submission
+    setLocation('');
+    setVehicles('');
+    setSpeed('');
+    setStatus('Normal');
+  }
 
   return (
     <div className="dashboard">
@@ -34,6 +90,7 @@ function App() {
           Monitor traffic measurements across Finland.
         </p>
 
+        {/* Statistics */}
         <section className="stats">
 
           <StatCard
@@ -53,7 +110,82 @@ function App() {
 
         </section>
 
-        <TrafficTable data={trafficData} />
+        {/* Search and Filter */}
+        <section className="controls">
+
+          <input
+            type="text"
+            placeholder="Search traffic location..."
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+          />
+
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+          >
+            <option value="All">All Traffic</option>
+            <option value="Normal">Normal</option>
+            <option value="Heavy">Heavy</option>
+          </select>
+
+        </section>
+
+        {/* Add Measurement Form */}
+        <section className="form-section">
+
+          <h2>Add Traffic Measurement</h2>
+
+          <form onSubmit={handleAddMeasurement}>
+
+            <input
+              type="text"
+              placeholder="Location name"
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+              required
+            />
+
+            <input
+              type="number"
+              placeholder="Number of vehicles"
+              min="0"
+              value={vehicles}
+              onChange={(event) => setVehicles(event.target.value)}
+              required
+            />
+
+            <input
+              type="number"
+              placeholder="Average speed (km/h)"
+              min="0"
+              value={speed}
+              onChange={(event) => setSpeed(event.target.value)}
+              required
+            />
+
+            <select
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+            >
+              <option value="Normal">Normal</option>
+              <option value="Heavy">Heavy</option>
+            </select>
+
+            <button type="submit">
+              Add Measurement
+            </button>
+
+          </form>
+
+        </section>
+
+        {/* Traffic Table */}
+        <TrafficTable data={filteredTrafficData} />
+
+        <p className="result-count">
+          Showing {filteredTrafficData.length} of {trafficData.length} locations
+        </p>
 
       </main>
     </div>
