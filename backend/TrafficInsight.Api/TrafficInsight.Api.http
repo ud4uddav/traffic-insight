@@ -1,0 +1,6 @@
+@TrafficInsight.Api_HostAddress = http://localhost:5278
+
+GET {{TrafficInsight.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

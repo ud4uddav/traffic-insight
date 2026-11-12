@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "sxdezbu2uzs=",
+  "success": true,
+  "projectFilePath": "/Users/uddavdhakal/traffic-insight/backend/TrafficInsight.Api/TrafficInsight.Api.csproj",
+  "expectedPackageFiles": [
+    "/Users/uddavdhakal/.nuget/packages/microsoft.aspnetcore.openapi/10.0.15/microsoft.aspnetcore.openapi.10.0.15.nupkg.sha512",
+    "/Users/uddavdhakal/.nuget/packages/microsoft.openapi/2.13.0/microsoft.openapi.2.13.0.nupkg.sha512"
+  ],
+  "logs": []
+}
