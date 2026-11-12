@@ -183,3 +183,11 @@ th {
   }
 }
 
+.error-message {
+  color: #dc2626;
+  background: #fee2e2;
+  padding: 12px;
+  border-radius: 6px;
+  margin: 15px 0;
+}
+

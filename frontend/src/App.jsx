@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import './App.css';
 
@@ -7,11 +7,38 @@ import Header from './components/Header';
 import StatCard from './components/StatCard';
 import TrafficTable from './components/TrafficTable';
 
-import initialTrafficData from './data/trafficData';
+
 
 function App() {
   // Store traffic measurements in React state
-  const [trafficData, setTrafficData] = useState(initialTrafficData);
+const [trafficData, setTrafficData] = useState([]);
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState('');
+
+useEffect(() => {
+  async function loadTrafficData() {
+    try {
+      const response = await fetch(
+        'http://localhost:5278/api/traffic'
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch traffic data');
+      }
+
+      const data = await response.json();
+
+      setTrafficData(data);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  loadTrafficData();
+}, []);
+
 
   // Store search input
   const [searchTerm, setSearchTerm] = useState('');
@@ -89,6 +116,9 @@ function App() {
         <p className="subtitle">
           Monitor traffic measurements across Finland.
         </p>
+        {loading && <p>Loading traffic measurements...</p>}
+
+        {error && <p className="error-message">Error: {error}</p>}
 
         {/* Statistics */}
         <section className="stats">

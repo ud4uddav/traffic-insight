@@ -3,7 +3,22 @@ using TrafficInsight.Api.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Allow requests from our React frontend
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ReactFrontend", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 var app = builder.Build();
+
+// Enable CORS
+app.UseCors("ReactFrontend");
 
 // Temporary in-memory traffic data
 var trafficData = new List<TrafficMeasurement>
