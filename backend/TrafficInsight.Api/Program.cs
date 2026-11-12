@@ -5,57 +5,98 @@ var builder = WebApplication.CreateBuilder(args);
 
 var app = builder.Build();
 
+// Temporary in-memory traffic data
+var trafficData = new List<TrafficMeasurement>
+{
+    new TrafficMeasurement
+    {
+        Id = 1,
+        Location = "Helsinki Central",
+        Vehicles = 1250,
+        Speed = 42,
+        Status = "Normal"
+    },
+    new TrafficMeasurement
+    {
+        Id = 2,
+        Location = "Tampere Junction",
+        Vehicles = 2100,
+        Speed = 24,
+        Status = "Heavy"
+    },
+    new TrafficMeasurement
+    {
+        Id = 3,
+        Location = "Turku Highway",
+        Vehicles = 980,
+        Speed = 65,
+        Status = "Normal"
+    },
+    new TrafficMeasurement
+    {
+        Id = 4,
+        Location = "Oulu North",
+        Vehicles = 1450,
+        Speed = 38,
+        Status = "Normal"
+    },
+    new TrafficMeasurement
+    {
+        Id = 5,
+        Location = "Espoo Centre",
+        Vehicles = 1850,
+        Speed = 18,
+        Status = "Heavy"
+    }
+};
+
+// GET: Return all traffic measurements
 app.MapGet("/api/traffic", () =>
 {
-    var trafficData = new List<TrafficMeasurement>
+    return Results.Ok(trafficData);
+});
+
+// POST: Add a new traffic measurement
+app.MapPost("/api/traffic", (TrafficMeasurement newMeasurement) =>
+{
+    // Validate the incoming data
+    if (string.IsNullOrWhiteSpace(newMeasurement.Location))
     {
-        new TrafficMeasurement
-        {
-            Id = 1,
-            Location = "Helsinki Central",
-            Vehicles = 1250,
-            Speed = 42,
-            Status = "Normal"
-        },
+        return Results.BadRequest("Location is required.");
+    }
 
-        new TrafficMeasurement
-        {
-            Id = 2,
-            Location = "Tampere Junction",
-            Vehicles = 2100,
-            Speed = 24,
-            Status = "Heavy"
-        },
+    if (newMeasurement.Vehicles < 0 || newMeasurement.Speed < 0)
+    {
+        return Results.BadRequest("Vehicles and speed cannot be negative.");
+    }
 
-        new TrafficMeasurement
-        {
-            Id = 3,
-            Location = "Turku Highway",
-            Vehicles = 980,
-            Speed = 65,
-            Status = "Normal"
-        },
+    if (newMeasurement.Status != "Normal" &&
+        newMeasurement.Status != "Heavy")
+    {
+        return Results.BadRequest("Status must be Normal or Heavy.");
+    }
 
-        new TrafficMeasurement
-        {
-            Id = 4,
-            Location = "Oulu North",
-            Vehicles = 1450,
-            Speed = 38,
-            Status = "Normal"
-        },
+    // Create a new measurement with an ID assigned by the backend
+    var measurement = new TrafficMeasurement
+    {
+        Id = trafficData.Count > 0
+            ? trafficData.Max(item => item.Id) + 1
+            : 1,
 
-        new TrafficMeasurement
-        {
-            Id = 5,
-            Location = "Espoo Centre",
-            Vehicles = 1850,
-            Speed = 18,
-            Status = "Heavy"
-        }
+        Location = newMeasurement.Location.Trim(),
+        Vehicles = newMeasurement.Vehicles,
+        Speed = newMeasurement.Speed,
+        Status = newMeasurement.Status
     };
 
-    return Results.Ok(trafficData);
+    // Add the measurement to our list
+    trafficData.Add(measurement);
+
+    // Return the created measurement
+    return Results.Created(
+        $"/api/traffic/{measurement.Id}",
+        measurement
+    );
 });
 
 app.Run();
