@@ -82,28 +82,61 @@ useEffect(() => {
   });
 
   // Add a new traffic measurement
-  function handleAddMeasurement(event) {
-    event.preventDefault();
+  
+async function handleAddMeasurement(event) {
+  // Stop the browser from refreshing the page
+  event.preventDefault();
 
-    const newMeasurement = {
-      id: Date.now(),
-      location: location.trim(),
-      vehicles: Number(vehicles),
-      speed: Number(speed),
-      status: status,
-    };
+  // Clear any previous error
+  setError('');
 
+  try {
+    // Send the new measurement to the C# backend
+    const response = await fetch(
+      'http://localhost:5278/api/traffic',
+      {
+        method: 'POST',
+
+        headers: {
+          'Content-Type': 'application/json',
+        },
+
+        body: JSON.stringify({
+          location: location.trim(),
+          vehicles: Number(vehicles),
+          speed: Number(speed),
+          status: status,
+        }),
+      }
+    );
+
+    // Check whether the backend accepted the request
+    if (!response.ok) {
+      const errorMessage = await response.text();
+      throw new Error(errorMessage || 'Failed to add measurement');
+    }
+
+    // Read the newly created measurement from the backend
+    const createdMeasurement = await response.json();
+
+    // Update the React dashboard with the backend response
     setTrafficData((currentData) => [
       ...currentData,
-      newMeasurement,
+      createdMeasurement,
     ]);
 
-    // Clear form after submission
+    // Clear the form
     setLocation('');
     setVehicles('');
     setSpeed('');
     setStatus('Normal');
+
+  } catch (error) {
+    // Display an error if the request fails
+    setError(error.message);
   }
+}
+
 
   return (
     <div className="dashboard">

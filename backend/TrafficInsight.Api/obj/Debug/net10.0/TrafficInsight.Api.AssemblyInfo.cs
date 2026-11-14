@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TrafficInsight.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c9ab23f37e987218007ef63dc23e34afe092670f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+207c2aed80894f85bccfbf2096b9247a88325153")]
 [assembly: System.Reflection.AssemblyProductAttribute("TrafficInsight.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TrafficInsight.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
