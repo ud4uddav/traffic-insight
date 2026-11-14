@@ -10,10 +10,11 @@
 using System;
 using System.Reflection;
 
+[assembly: Microsoft.Extensions.Configuration.UserSecrets.UserSecretsIdAttribute("cf2fcd8c-9e08-4f79-9cb4-c19f054d1669")]
 [assembly: System.Reflection.AssemblyCompanyAttribute("TrafficInsight.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+207c2aed80894f85bccfbf2096b9247a88325153")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ee08180a635f3a58fcbb38acebec12053cf1ffe0")]
 [assembly: System.Reflection.AssemblyProductAttribute("TrafficInsight.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TrafficInsight.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
