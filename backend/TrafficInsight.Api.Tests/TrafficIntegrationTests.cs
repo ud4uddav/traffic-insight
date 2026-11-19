@@ -213,5 +213,32 @@ public async Task DeleteTraffic_RemovesExistingMeasurement()
     );
 }
 
+[Fact]
+public async Task PutTraffic_NonExistingId_ReturnsNotFound()
+{
+    // Arrange
+    int nonExistingId = int.MaxValue;
+
+    var updatedMeasurement = new TrafficMeasurement
+    {
+        Location = "Helsinki Test Road",
+        Vehicles = 1000,
+        Speed = 40,
+        Status = "Normal"
+    };
+
+    // Act
+    var response = await _client.PutAsJsonAsync(
+        $"/api/traffic/{nonExistingId}",
+        updatedMeasurement
+    );
+
+    // Assert
+    Assert.Equal(
+        HttpStatusCode.NotFound,
+        response.StatusCode
+    );
+}
+
 
 }
