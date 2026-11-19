@@ -162,5 +162,56 @@ public async Task PutTraffic_UpdatesExistingMeasurement()
     }
 }
 
+[Fact]
+public async Task DeleteTraffic_RemovesExistingMeasurement()
+{
+    // Arrange: Create a measurement
+    var newMeasurement = new TrafficMeasurement
+    {
+        Location = "Oulu Test Road",
+        Vehicles = 700,
+        Speed = 45,
+        Status = "Normal"
+    };
+
+    var createResponse = await _client.PostAsJsonAsync(
+        "/api/traffic",
+        newMeasurement
+    );
+
+    var createdMeasurement =
+        await createResponse.Content.ReadFromJsonAsync<
+            TrafficMeasurement>();
+
+    Assert.NotNull(createdMeasurement);
+
+    // Act: Delete the measurement
+    var deleteResponse = await _client.DeleteAsync(
+        $"/api/traffic/{createdMeasurement.Id}"
+    );
+
+    // Assert: Verify successful deletion
+    Assert.Equal(
+        HttpStatusCode.NoContent,
+        deleteResponse.StatusCode
+    );
+
+    // Verify that the record no longer exists
+    var getResponse = await _client.GetAsync(
+        "/api/traffic"
+    );
+
+    var measurements =
+        await getResponse.Content.ReadFromJsonAsync<
+            List<TrafficMeasurement>>();
+
+    Assert.NotNull(measurements);
+
+    Assert.DoesNotContain(
+        measurements,
+        item => item.Id == createdMeasurement.Id
+    );
+}
+
 
 }
