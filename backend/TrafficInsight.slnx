@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="TrafficInsight.Api.Tests/TrafficInsight.Api.Tests.csproj" />
+  <Project Path="TrafficInsight.Api/TrafficInsight.Api.csproj" />
+</Solution>

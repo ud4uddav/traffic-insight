@@ -1,9 +1,35 @@
 
+using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
 using TrafficInsight.Api.Data;
 using TrafficInsight.Api.Models;
 
+bool ValidateModel(TrafficMeasurement measurement, out List<string> errors)
+{
+    var validationResults = new List<ValidationResult>();
+
+    var validationContext = new ValidationContext(measurement);
+
+    bool isValid = Validator.TryValidateObject(
+        measurement,
+        validationContext,
+        validationResults,
+        validateAllProperties: true
+    );
+
+    errors = validationResults
+        .Select(result => result.ErrorMessage ?? "Invalid value")
+        .ToList();
+
+    return isValid;
+}
+
+
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 // Register PostgreSQL database connection
 builder.Services.AddDbContext<TrafficDbContext>(options =>
@@ -25,6 +51,12 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.UseCors("ReactFrontend");
 
@@ -90,31 +122,16 @@ app.MapGet("/api/traffic", async (TrafficDbContext db) =>
 
 // POST: Add a new traffic measurement
 app.MapPost("/api/traffic", async (
-    TrafficMeasurement newMeasurement,
+    TrafficMeasurement measurement,
     TrafficDbContext db) =>
 {
-    if (string.IsNullOrWhiteSpace(newMeasurement.Location))
-        return Results.BadRequest("Location is required.");
-
-    if (newMeasurement.Vehicles < 0 ||
-        newMeasurement.Speed < 0)
-        return Results.BadRequest(
-            "Vehicles and speed cannot be negative."
-        );
-
-    if (newMeasurement.Status != "Normal" &&
-        newMeasurement.Status != "Heavy")
-        return Results.BadRequest(
-            "Status must be Normal or Heavy."
-        );
-
-    var measurement = new TrafficMeasurement
+    if (!ValidateModel(measurement, out var errors))
     {
-        Location = newMeasurement.Location.Trim(),
-        Vehicles = newMeasurement.Vehicles,
-        Speed = newMeasurement.Speed,
-        Status = newMeasurement.Status
-    };
+        return Results.BadRequest(new
+        {
+            Errors = errors
+        });
+    }
 
     db.TrafficMeasurements.Add(measurement);
 
@@ -126,4 +143,59 @@ app.MapPost("/api/traffic", async (
     );
 });
 
+// PUT: Update an existing traffic measurement
+app.MapPut("/api/traffic/{id:int}", async (
+    int id,
+    TrafficMeasurement updatedMeasurement,
+    TrafficDbContext db) =>
+{
+    var measurement = await db.TrafficMeasurements.FindAsync(id);
+
+    if (measurement is null)
+    {
+        return Results.NotFound();
+    }
+
+    if (!ValidateModel(updatedMeasurement, out var errors))
+    {
+        return Results.BadRequest(new
+        {
+            Errors = errors
+        });
+    }
+
+    measurement.Location = updatedMeasurement.Location;
+    measurement.Vehicles = updatedMeasurement.Vehicles;
+    measurement.Speed = updatedMeasurement.Speed;
+    measurement.Status = updatedMeasurement.Status;
+
+    await db.SaveChangesAsync();
+
+    return Results.Ok(measurement);
+});
+
+// DELETE: Remove a traffic measurement
+app.MapDelete("/api/traffic/{id:int}", async (
+    int id,
+    TrafficDbContext db) =>
+{
+    var measurement = await db.TrafficMeasurements
+        .FindAsync(id);
+
+    if (measurement == null)
+    {
+        return Results.NotFound(
+            $"Traffic measurement with ID {id} was not found."
+        );
+    }
+
+    db.TrafficMeasurements.Remove(measurement);
+
+    await db.SaveChangesAsync();
+
+    return Results.NoContent();
+});
+
 app.Run();
+
+public partial class Program { }
