@@ -240,5 +240,23 @@ public async Task PutTraffic_NonExistingId_ReturnsNotFound()
     );
 }
 
+[Fact]
+public async Task DeleteTraffic_NonExistingId_ReturnsNotFound()
+{
+    // Arrange
+    int nonExistingId = int.MaxValue;
+
+    // Act
+    var response = await _client.DeleteAsync(
+        $"/api/traffic/{nonExistingId}"
+    );
+
+    // Assert
+    Assert.Equal(
+        HttpStatusCode.NotFound,
+        response.StatusCode
+    );
+}
+
 
 }
