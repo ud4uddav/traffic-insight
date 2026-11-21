@@ -283,5 +283,30 @@ public async Task PostTraffic_InvalidData_ReturnsBadRequest()
     );
 }
 
+[Fact]
+public async Task PostTraffic_LocationTooLong_ReturnsBadRequest()
+{
+    // Arrange: Create a location longer than 100 characters
+    var invalidMeasurement = new TrafficMeasurement
+    {
+        Location = new string('A', 101),
+        Vehicles = 500,
+        Speed = 50,
+        Status = "Normal"
+    };
+
+    // Act
+    var response = await _client.PostAsJsonAsync(
+        "/api/traffic",
+        invalidMeasurement
+    );
+
+    // Assert
+    Assert.Equal(
+        HttpStatusCode.BadRequest,
+        response.StatusCode
+    );
+}
+
 
 }
