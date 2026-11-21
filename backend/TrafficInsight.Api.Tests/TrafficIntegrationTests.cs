@@ -258,5 +258,30 @@ public async Task DeleteTraffic_NonExistingId_ReturnsNotFound()
     );
 }
 
+[Fact]
+public async Task PostTraffic_InvalidData_ReturnsBadRequest()
+{
+    // Arrange: Create invalid traffic measurement
+    var invalidMeasurement = new TrafficMeasurement
+    {
+        Location = "",
+        Vehicles = -100,
+        Speed = -20,
+        Status = "Unknown"
+    };
+
+    // Act: Send invalid POST request
+    var response = await _client.PostAsJsonAsync(
+        "/api/traffic",
+        invalidMeasurement
+    );
+
+    // Assert: API should reject invalid data
+    Assert.Equal(
+        HttpStatusCode.BadRequest,
+        response.StatusCode
+    );
+}
+
 
 }
