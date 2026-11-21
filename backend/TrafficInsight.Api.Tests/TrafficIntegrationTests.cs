@@ -308,5 +308,30 @@ public async Task PostTraffic_LocationTooLong_ReturnsBadRequest()
     );
 }
 
+[Fact]
+public async Task PostTraffic_InvalidStatus_ReturnsBadRequest()
+{
+    // Arrange
+    var invalidMeasurement = new TrafficMeasurement
+    {
+        Location = "Helsinki Test Road",
+        Vehicles = 500,
+        Speed = 50,
+        Status = "Critical"
+    };
+
+    // Act
+    var response = await _client.PostAsJsonAsync(
+        "/api/traffic",
+        invalidMeasurement
+    );
+
+    // Assert
+    Assert.Equal(
+        HttpStatusCode.BadRequest,
+        response.StatusCode
+    );
+}
+
 
 }
