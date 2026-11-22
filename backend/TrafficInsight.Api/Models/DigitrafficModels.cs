@@ -10,8 +10,6 @@ public class DigitrafficResponse
 
 public class DigitrafficStation
 {
-    public int Id { get; set; }
-
     public int TmsNumber { get; set; }
 
     public DateTimeOffset? DataUpdatedTime { get; set; }
@@ -22,8 +20,6 @@ public class DigitrafficStation
 public class DigitrafficSensorValue
 {
     public string Name { get; set; } = string.Empty;
-
-    public string Unit { get; set; } = string.Empty;
 
     public double? Value { get; set; }
 

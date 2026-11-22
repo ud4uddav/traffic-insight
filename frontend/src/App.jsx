@@ -71,6 +71,10 @@ function App() {
           <span className="source-pill"><span aria-hidden="true">●</span> Digitraffic data</span>
         </div>
 
+        <Suspense fallback={<p className="empty-state">Preparing traffic charts…</p>}>
+          <TrafficCharts data={trafficData} />
+        </Suspense>
+
         <section className="live-traffic-section" aria-labelledby="live-data-heading">
           <div className="section-heading">
             <div>
@@ -149,10 +153,6 @@ function App() {
             </div>
           )}
         </section>
-
-        <Suspense fallback={<p className="empty-state">Preparing traffic charts…</p>}>
-          <TrafficCharts data={trafficData} />
-        </Suspense>
 
         <p className="attribution">
           Live road traffic data provided by Digitraffic / Fintraffic.

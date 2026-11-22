@@ -42,12 +42,17 @@ public class DigitrafficServiceTests
     {
         var handler = new StubHttpMessageHandler(request =>
         {
-            var json = request.RequestUri!.AbsolutePath.EndsWith("/stations/data")
-                ? """{"stations":[{"tmsNumber":101,"sensorValues":[{"name":"OHITUKSET_5MIN_KIINTEA_SUUNTA1","value":0}]}]}"""
-                : """{"features":[]}""";
+            if (!request.RequestUri!.AbsolutePath.EndsWith("/stations/data"))
+            {
+                return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+            }
+
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent(json, Encoding.UTF8, "application/json")
+                Content = new StringContent(
+                    """{"dataUpdatedTime":"2026-11-22T12:00:00Z","stations":[{"tmsNumber":101,"sensorValues":[{"name":"OHITUKSET_5MIN_KIINTEA_SUUNTA1","value":0}]}]}""",
+                    Encoding.UTF8,
+                    "application/json")
             };
         });
         using var client = new HttpClient(handler)
@@ -59,8 +64,10 @@ public class DigitrafficServiceTests
 
         var measurement = Assert.Single(await service.GetMeasurementsAsync());
 
+        Assert.Equal(0, measurement.VehiclesPerHour);
         Assert.Null(measurement.AverageSpeedKmh);
         Assert.Null(measurement.StationName);
+        Assert.Equal(DateTimeOffset.Parse("2026-11-22T12:00:00Z"), measurement.MeasuredTime);
     }
 
     private sealed class StubHttpMessageHandler(

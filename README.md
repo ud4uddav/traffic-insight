@@ -98,7 +98,7 @@ Limits to understand before a public launch:
 
 ## Testing and checks
 
-The current backend test suite has two unit tests for `DigitrafficService`: station and speed mapping, and preservation of unavailable speed as null. It does not currently include API endpoint integration tests or browser end-to-end tests. The frontend has lint and production-build checks but no component test runner yet.
+The current backend test suite has two unit tests for `DigitrafficService`: station and speed mapping, and behavior when speed is missing or station metadata is unavailable. It does not currently include API endpoint integration tests or browser end-to-end tests. The frontend has lint and production-build checks but no component test runner yet.
 
 Run the current checks:
 

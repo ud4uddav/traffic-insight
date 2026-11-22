@@ -19,7 +19,7 @@ public class DigitrafficService
     public async Task<List<ExternalTrafficMeasurement>>
         GetMeasurementsAsync(CancellationToken cancellationToken = default)
     {
-        var response = await _httpClient.GetAsync(
+        using var response = await _httpClient.GetAsync(
             "api/tms/v1/stations/data",
             cancellationToken
         );
@@ -80,6 +80,7 @@ public class DigitrafficService
                 MeasuredTime = speedSensor?.MeasuredTime
                     ?? vehicleSensor?.MeasuredTime
                     ?? station.DataUpdatedTime
+                    ?? digitrafficData.DataUpdatedTime
             });
         }
 
