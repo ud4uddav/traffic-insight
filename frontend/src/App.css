@@ -267,3 +267,22 @@ main {
   }
 }
 
+.error-message {
+  color: #dc2626;
+  background: #fee2e2;
+  padding: 12px;
+  border-radius: 6px;
+}
+
+.success-message {
+  color: #166534;
+  background: #dcfce7;
+  padding: 12px;
+  border-radius: 6px;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+

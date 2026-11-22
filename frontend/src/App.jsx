@@ -7,20 +7,33 @@ import Header from './components/Header';
 import StatCard from './components/StatCard';
 import TrafficTable from './components/TrafficTable';
 
-
-
 const API_URL = import.meta.env.VITE_API_URL;
 
-
-
 function App() {
-  // Store traffic measurements in React state
-const [trafficData, setTrafficData] = useState([]);
-const [loading, setLoading] = useState(true);
-const [error, setError] = useState('');
+  // Traffic data and application state
+  const [trafficData, setTrafficData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
-useEffect(() => {
+  // Search and filter state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+
+  // Form state
+  const [location, setLocation] = useState('');
+  const [vehicles, setVehicles] = useState('');
+  const [speed, setSpeed] = useState('');
+  const [status, setStatus] = useState('Normal');
+
+  // Editing state
+  const [editingId, setEditingId] = useState(null);
+
+  // Fetch traffic measurements from backend
   async function loadTrafficData() {
+    setLoading(true);
+    setError('');
+
     try {
       const response = await fetch(API_URL);
 
@@ -38,24 +51,10 @@ useEffect(() => {
     }
   }
 
-  loadTrafficData();
-}, []);
-
-
-  // Store search input
-  const [searchTerm, setSearchTerm] = useState('');
-
-  // Store selected traffic status
-  const [statusFilter, setStatusFilter] = useState('All');
-
-  // Store new measurement form values
-  const [location, setLocation] = useState('');
-  const [vehicles, setVehicles] = useState('');
-  const [speed, setSpeed] = useState('');
-  const [status, setStatus] = useState('Normal');
-
-  // Store the ID of the measurement being edited
-const [editingId, setEditingId] = useState(null);
+  // Load data when application starts
+  useEffect(() => {
+    loadTrafficData();
+  }, []);
 
   // Calculate total vehicles
   const totalVehicles = trafficData.reduce(
@@ -86,226 +85,204 @@ const [editingId, setEditingId] = useState(null);
     return matchesSearch && matchesStatus;
   });
 
-  // Load an existing measurement into the form
-function handleEditMeasurement(measurement) {
-  setEditingId(measurement.id);
-
-  setLocation(measurement.location);
-  setVehicles(String(measurement.vehicles));
-  setSpeed(String(measurement.speed));
-  setStatus(measurement.status);
-
-  // Scroll to the form
-  window.scrollTo({
-    top: 0,
-    behavior: 'smooth',
-  });
-}
-
-// Update an existing traffic measurement
-async function handleUpdateMeasurement(event) {
-  event.preventDefault();
-
-  const validationError = validateMeasurement();
-
-if (validationError) {
-  setError(validationError);
-  return;
-}
-
-  setError('');
-
-  try {
-    const response = await fetch(
-      `${API_URL}/${editingId}`,
-      {
-        method: 'PUT',
-
-        headers: {
-          'Content-Type': 'application/json',
-        },
-
-        body: JSON.stringify({
-          location: location.trim(),
-          vehicles: Number(vehicles),
-          speed: Number(speed),
-          status: status,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorMessage = await response.text();
-      throw new Error(errorMessage || 'Failed to update measurement');
-    }
-
-    const updatedMeasurement = await response.json();
-
-    setTrafficData((currentData) =>
-      currentData.map((item) =>
-        item.id === editingId ? updatedMeasurement : item
-      )
-
-      
-    );
-
-    // Reset the form
+  // Reset form fields
+  function resetForm() {
     setEditingId(null);
     setLocation('');
     setVehicles('');
     setSpeed('');
     setStatus('Normal');
-
-  } catch (error) {
-    setError(error.message);
-  }
-}
-
-
-async function handleDeleteMeasurement(id) {
-  const confirmed = window.confirm(
-    'Are you sure you want to delete this measurement?'
-  );
-
-  if (!confirmed) {
-    return;
   }
 
-  setError('');
-
-  try {
-    const response = await fetch(`${API_URL}/${id}`,
-      {
-        method: 'DELETE',
-      }
-    );
-
-    if (!response.ok) {
-      const errorMessage = await response.text();
-      throw new Error(errorMessage || 'Failed to delete measurement');
+  // Validate traffic measurement form
+  function validateMeasurement() {
+    if (!location.trim()) {
+      return 'Location is required';
     }
 
-    // Remove the deleted measurement from React state
-    setTrafficData((currentData) =>
-      currentData.filter((item) => item.id !== id)
-    );
-
-    // If the deleted record was being edited, reset the form
-    if (editingId === id) {
-      setEditingId(null);
-      setLocation('');
-      setVehicles('');
-      setSpeed('');
-      setStatus('Normal');
+    if (
+      vehicles === '' ||
+      !Number.isInteger(Number(vehicles)) ||
+      Number(vehicles) < 0
+    ) {
+      return 'Vehicles must be a non-negative whole number';
     }
 
-  } catch (error) {
-    setError(error.message);
-  }
-}
+    if (
+      speed === '' ||
+      !Number.isFinite(Number(speed)) ||
+      Number(speed) < 0 ||
+      Number(speed) > 300
+    ) {
+      return 'Speed must be between 0 and 300 km/h';
+    }
 
-// Validate traffic measurement form
-function validateMeasurement() {
-  if (!location.trim()) {
-    return 'Location is required';
-  }
+    if (!['Normal', 'Heavy'].includes(status)) {
+      return 'Invalid traffic status';
+    }
 
-  if (
-    vehicles === '' ||
-    !Number.isInteger(Number(vehicles)) ||
-    Number(vehicles) < 0
-  ) {
-    return 'Vehicles must be a non-negative whole number';
+    return null;
   }
 
-  if (
-    speed === '' ||
-    !Number.isFinite(Number(speed)) ||
-    Number(speed) < 0 ||
-    Number(speed) > 300
-  ) {
-    return 'Speed must be between 0 and 300 km/h';
+  // Load an existing measurement into the form
+  function handleEditMeasurement(measurement) {
+    setEditingId(measurement.id);
+    setLocation(measurement.location);
+    setVehicles(String(measurement.vehicles));
+    setSpeed(String(measurement.speed));
+    setStatus(measurement.status);
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
   }
 
-  if (!['Normal', 'Heavy'].includes(status)) {
-    return 'Invalid traffic status';
-  }
-
-  return null;
-}
   // Add a new traffic measurement
-  
-async function handleAddMeasurement(event) {
-  // Stop the browser from refreshing the page
-  event.preventDefault();
+  async function handleAddMeasurement(event) {
+    event.preventDefault();
 
-const validationError = validateMeasurement();
+    const validationError = validateMeasurement();
 
-if (validationError) {
-  setError(validationError);
-  return;
-}
+    if (validationError) {
+      setError(validationError);
+      setSuccessMessage('');
+      return;
+    }
 
-  // Clear any previous error
-  setError('');
+    setError('');
+    setSuccessMessage('');
 
-  try {
-    // Send the new measurement to the C# backend
-    const response = await fetch(API_URL,
-      {
+    try {
+      const response = await fetch(API_URL, {
         method: 'POST',
-
         headers: {
           'Content-Type': 'application/json',
         },
-
         body: JSON.stringify({
           location: location.trim(),
           vehicles: Number(vehicles),
           speed: Number(speed),
-          status: status,
+          status,
         }),
-      }
-    );
+      });
 
-    // Check whether the backend accepted the request
-    if (!response.ok) {
       if (!response.ok) {
-  const errorData = await response.json();
+        const errorData = await response.json();
 
-  const message = Array.isArray(errorData.errors)
-    ? errorData.errors.join(' ')
-    : 'Failed to add measurement';
+        const message = Array.isArray(errorData.errors)
+          ? errorData.errors.join(' ')
+          : 'Failed to add measurement';
 
-  throw new Error(message);
-}
+        throw new Error(message);
+      }
+
+      const createdMeasurement = await response.json();
+
+      setTrafficData((currentData) => [
+        ...currentData,
+        createdMeasurement,
+      ]);
+
+      resetForm();
+      setSuccessMessage('Traffic measurement added successfully!');
+    } catch (error) {
+      setError(error.message);
+    }
+  }
+
+  // Update an existing traffic measurement
+  async function handleUpdateMeasurement(event) {
+    event.preventDefault();
+
+    const validationError = validateMeasurement();
+
+    if (validationError) {
+      setError(validationError);
+      setSuccessMessage('');
+      return;
     }
 
-    // Read the newly created measurement from the backend
-    const createdMeasurement = await response.json();
+    setError('');
+    setSuccessMessage('');
 
-    // Update the React dashboard with the backend response
-    setTrafficData((currentData) => [
-      ...currentData,
-      createdMeasurement,
-    ]);
+    try {
+      const response = await fetch(`${API_URL}/${editingId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          location: location.trim(),
+          vehicles: Number(vehicles),
+          speed: Number(speed),
+          status,
+        }),
+      });
 
-    // Clear the form
-    setLocation('');
-    setVehicles('');
-    setSpeed('');
-    setStatus('Normal');
+      if (!response.ok) {
+        const errorMessage = await response.text();
+        throw new Error(
+          errorMessage || 'Failed to update measurement'
+        );
+      }
 
-  } catch (error) {
-    // Display an error if the request fails
-    setError(error.message);
+      const updatedMeasurement = await response.json();
+
+      setTrafficData((currentData) =>
+        currentData.map((item) =>
+          item.id === editingId ? updatedMeasurement : item
+        )
+      );
+
+      resetForm();
+      setSuccessMessage('Traffic measurement updated successfully!');
+    } catch (error) {
+      setError(error.message);
+    }
   }
-}
 
+  // Delete a traffic measurement
+  async function handleDeleteMeasurement(id) {
+    const confirmed = window.confirm(
+      'Are you sure you want to delete this measurement?'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setError('');
+    setSuccessMessage('');
+
+    try {
+      const response = await fetch(`${API_URL}/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorMessage = await response.text();
+        throw new Error(
+          errorMessage || 'Failed to delete measurement'
+        );
+      }
+
+      setTrafficData((currentData) =>
+        currentData.filter((item) => item.id !== id)
+      );
+
+      if (editingId === id) {
+        resetForm();
+      }
+
+      setSuccessMessage('Traffic measurement deleted successfully!');
+    } catch (error) {
+      setError(error.message);
+    }
+  }
 
   return (
     <div className="dashboard">
-
       <Header />
 
       <main>
@@ -314,13 +291,35 @@ if (validationError) {
         <p className="subtitle">
           Monitor traffic measurements across Finland.
         </p>
-        {loading && <p>Loading traffic measurements...</p>}
 
-        {error && <p className="error-message">Error: {error}</p>}
+        {/* Refresh traffic data */}
+        <button
+          type="button"
+          onClick={loadTrafficData}
+          disabled={loading}
+        >
+          {loading ? 'Refreshing...' : 'Refresh Data'}
+        </button>
 
-        {/* Statistics */}
+        {/* Loading, error and success messages */}
+        {loading && (
+          <p>Loading traffic measurements...</p>
+        )}
+
+        {error && (
+          <p className="error-message">
+            Error: {error}
+          </p>
+        )}
+
+        {successMessage && (
+          <p className="success-message">
+            {successMessage}
+          </p>
+        )}
+
+        {/* Dashboard statistics */}
         <section className="stats">
-
           <StatCard
             title="Total Vehicles"
             value={totalVehicles.toLocaleString()}
@@ -335,12 +334,10 @@ if (validationError) {
             title="Average Speed"
             value={`${averageSpeed} km/h`}
           />
-
         </section>
 
-        {/* Search and Filter */}
+        {/* Search and filter */}
         <section className="controls">
-
           <input
             type="text"
             placeholder="Search traffic location..."
@@ -356,24 +353,23 @@ if (validationError) {
             <option value="Normal">Normal</option>
             <option value="Heavy">Heavy</option>
           </select>
-
         </section>
 
-        {/* Add Measurement Form */}
+        {/* Add or edit measurement form */}
         <section className="form-section">
+          <h2>
+            {editingId !== null
+              ? 'Edit Traffic Measurement'
+              : 'Add Traffic Measurement'}
+          </h2>
 
-           <h2>
-              {editingId !== null
-                ? 'Edit Traffic Measurement'
-                : 'Add Traffic Measurement'}
-            </h2>
-
-          <form onSubmit={
-           editingId !== null
-          ? handleUpdateMeasurement
-          : handleAddMeasurement
-          }>
-
+          <form
+            onSubmit={
+              editingId !== null
+                ? handleUpdateMeasurement
+                : handleAddMeasurement
+            }
+          >
             <input
               type="text"
               placeholder="Location name"
@@ -411,26 +407,32 @@ if (validationError) {
             </select>
 
             <button type="submit">
-  {editingId !== null
-    ? 'Update Measurement'
-    : 'Add Measurement'}
+              {editingId !== null
+                ? 'Update Measurement'
+                : 'Add Measurement'}
             </button>
 
+            {editingId !== null && (
+              <button
+                type="button"
+                onClick={resetForm}
+              >
+                Cancel Editing
+              </button>
+            )}
           </form>
-
         </section>
 
-        {/* Traffic Table */}
-       <TrafficTable
-  data={filteredTrafficData}
-  onEdit={handleEditMeasurement}
-  onDelete={handleDeleteMeasurement}
-/>
+        {/* Traffic measurements table */}
+        <TrafficTable
+          data={filteredTrafficData}
+          onEdit={handleEditMeasurement}
+          onDelete={handleDeleteMeasurement}
+        />
 
         <p className="result-count">
           Showing {filteredTrafficData.length} of {trafficData.length} locations
         </p>
-
       </main>
     </div>
   );
