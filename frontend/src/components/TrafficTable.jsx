@@ -1,5 +1,5 @@
 
-function TrafficTable({ data }) {
+function TrafficTable({ data, onEdit, onDelete }) {
   return (
     <section className="table-section">
       <h2>Traffic Measurements</h2>
@@ -12,6 +12,7 @@ function TrafficTable({ data }) {
               <th>Vehicles</th>
               <th>Average Speed</th>
               <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
 
@@ -21,6 +22,7 @@ function TrafficTable({ data }) {
                 <td>{item.location}</td>
                 <td>{item.vehicles.toLocaleString()}</td>
                 <td>{item.speed} km/h</td>
+
                 <td>
                   <span
                     className={
@@ -31,6 +33,22 @@ function TrafficTable({ data }) {
                   >
                     {item.status}
                   </span>
+                </td>
+
+                <td>
+                  <button
+                    type="button"
+                    onClick={() => onEdit(item)}
+                  >
+                    Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onDelete(item.id)}
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}

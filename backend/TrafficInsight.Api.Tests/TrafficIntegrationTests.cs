@@ -333,5 +333,33 @@ public async Task PostTraffic_InvalidStatus_ReturnsBadRequest()
     );
 }
 
+[Fact]
+public async Task PostTraffic_InvalidData_ReturnsValidationErrors()
+{
+    var client = _client;
+
+    var invalidMeasurement = new
+    {
+        Location = "",
+        Vehicles = -5,
+        Speed = -10,
+        Status = "Critical"
+    };
+
+    var response = await client.PostAsJsonAsync(
+        "/api/traffic",
+        invalidMeasurement
+    );
+
+    Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+    var content = await response.Content.ReadAsStringAsync();
+
+    Assert.Contains("errors", content);
+    Assert.Contains("Location", content);
+    Assert.Contains("Vehicles", content);
+    Assert.Contains("Speed", content);
+    Assert.Contains("Status", content);
+}
 
 }
