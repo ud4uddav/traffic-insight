@@ -1,437 +1,161 @@
-
-import { useEffect, useState } from 'react';
-
+import { lazy, Suspense, useEffect, useState } from 'react';
 import './App.css';
-
 import Header from './components/Header';
 import StatCard from './components/StatCard';
-import TrafficTable from './components/TrafficTable';
 
+const TrafficCharts = lazy(() => import('./components/TrafficCharts'));
 const API_URL = import.meta.env.VITE_API_URL;
 
 function App() {
-  // Traffic data and application state
   const [trafficData, setTrafficData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-
-  // Search and filter state
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
+  const [lastUpdated, setLastUpdated] = useState(null);
 
-  // Form state
-  const [location, setLocation] = useState('');
-  const [vehicles, setVehicles] = useState('');
-  const [speed, setSpeed] = useState('');
-  const [status, setStatus] = useState('Normal');
-
-  // Editing state
-  const [editingId, setEditingId] = useState(null);
-
-  // Fetch traffic measurements from backend
   async function loadTrafficData() {
     setLoading(true);
     setError('');
 
     try {
-      const response = await fetch(API_URL);
-
+      const response = await fetch(`${API_URL}/external`);
       if (!response.ok) {
-        throw new Error('Failed to fetch traffic data');
+        throw new Error('Live traffic data could not be loaded. Try again shortly.');
       }
-
       const data = await response.json();
-
+      if (!Array.isArray(data)) {
+        throw new Error('The live traffic service returned an unexpected response.');
+      }
       setTrafficData(data);
-    } catch (error) {
-      setError(error.message);
+      setLastUpdated(new Date());
+    } catch (loadError) {
+      setError(loadError.message || 'Live traffic data could not be loaded.');
     } finally {
       setLoading(false);
     }
   }
 
-  // Load data when application starts
   useEffect(() => {
-    loadTrafficData();
+    const timer = window.setTimeout(loadTrafficData, 0);
+    const refreshTimer = window.setInterval(loadTrafficData, 60_000);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(refreshTimer);
+    };
   }, []);
 
-  // Calculate total vehicles
-  const totalVehicles = trafficData.reduce(
-    (total, item) => total + item.vehicles,
-    0
-  );
-
-  // Calculate average speed
-  const averageSpeed =
-    trafficData.length > 0
-      ? Math.round(
-          trafficData.reduce(
-            (total, item) => total + item.speed,
-            0
-          ) / trafficData.length
-        )
-      : 0;
-
-  // Search and filter traffic measurements
-  const filteredTrafficData = trafficData.filter((item) => {
-    const matchesSearch = item.location
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === 'All' || item.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
+  const filteredTrafficData = trafficData.filter((station) => {
+    const query = searchTerm.trim().toLocaleLowerCase();
+    const searchValue = `${station.stationName ?? ''} ${station.stationId}`.toLocaleLowerCase();
+    return searchValue.includes(query);
   });
 
-  // Reset form fields
-  function resetForm() {
-    setEditingId(null);
-    setLocation('');
-    setVehicles('');
-    setSpeed('');
-    setStatus('Normal');
-  }
-
-  // Validate traffic measurement form
-  function validateMeasurement() {
-    if (!location.trim()) {
-      return 'Location is required';
-    }
-
-    if (
-      vehicles === '' ||
-      !Number.isInteger(Number(vehicles)) ||
-      Number(vehicles) < 0
-    ) {
-      return 'Vehicles must be a non-negative whole number';
-    }
-
-    if (
-      speed === '' ||
-      !Number.isFinite(Number(speed)) ||
-      Number(speed) < 0 ||
-      Number(speed) > 300
-    ) {
-      return 'Speed must be between 0 and 300 km/h';
-    }
-
-    if (!['Normal', 'Heavy'].includes(status)) {
-      return 'Invalid traffic status';
-    }
-
-    return null;
-  }
-
-  // Load an existing measurement into the form
-  function handleEditMeasurement(measurement) {
-    setEditingId(measurement.id);
-    setLocation(measurement.location);
-    setVehicles(String(measurement.vehicles));
-    setSpeed(String(measurement.speed));
-    setStatus(measurement.status);
-
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth',
-    });
-  }
-
-  // Add a new traffic measurement
-  async function handleAddMeasurement(event) {
-    event.preventDefault();
-
-    const validationError = validateMeasurement();
-
-    if (validationError) {
-      setError(validationError);
-      setSuccessMessage('');
-      return;
-    }
-
-    setError('');
-    setSuccessMessage('');
-
-    try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          location: location.trim(),
-          vehicles: Number(vehicles),
-          speed: Number(speed),
-          status,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-
-        const message = Array.isArray(errorData.errors)
-          ? errorData.errors.join(' ')
-          : 'Failed to add measurement';
-
-        throw new Error(message);
-      }
-
-      const createdMeasurement = await response.json();
-
-      setTrafficData((currentData) => [
-        ...currentData,
-        createdMeasurement,
-      ]);
-
-      resetForm();
-      setSuccessMessage('Traffic measurement added successfully!');
-    } catch (error) {
-      setError(error.message);
-    }
-  }
-
-  // Update an existing traffic measurement
-  async function handleUpdateMeasurement(event) {
-    event.preventDefault();
-
-    const validationError = validateMeasurement();
-
-    if (validationError) {
-      setError(validationError);
-      setSuccessMessage('');
-      return;
-    }
-
-    setError('');
-    setSuccessMessage('');
-
-    try {
-      const response = await fetch(`${API_URL}/${editingId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          location: location.trim(),
-          vehicles: Number(vehicles),
-          speed: Number(speed),
-          status,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorMessage = await response.text();
-        throw new Error(
-          errorMessage || 'Failed to update measurement'
-        );
-      }
-
-      const updatedMeasurement = await response.json();
-
-      setTrafficData((currentData) =>
-        currentData.map((item) =>
-          item.id === editingId ? updatedMeasurement : item
-        )
-      );
-
-      resetForm();
-      setSuccessMessage('Traffic measurement updated successfully!');
-    } catch (error) {
-      setError(error.message);
-    }
-  }
-
-  // Delete a traffic measurement
-  async function handleDeleteMeasurement(id) {
-    const confirmed = window.confirm(
-      'Are you sure you want to delete this measurement?'
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setError('');
-    setSuccessMessage('');
-
-    try {
-      const response = await fetch(`${API_URL}/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const errorMessage = await response.text();
-        throw new Error(
-          errorMessage || 'Failed to delete measurement'
-        );
-      }
-
-      setTrafficData((currentData) =>
-        currentData.filter((item) => item.id !== id)
-      );
-
-      if (editingId === id) {
-        resetForm();
-      }
-
-      setSuccessMessage('Traffic measurement deleted successfully!');
-    } catch (error) {
-      setError(error.message);
-    }
-  }
+  const availableSpeeds = trafficData
+    .map((station) => station.averageSpeedKmh)
+    .filter(Number.isFinite);
+  const averageSpeed = availableSpeeds.length > 0
+    ? Math.round(availableSpeeds.reduce((total, speed) => total + speed, 0) / availableSpeeds.length)
+    : null;
+  const stationsWithSpeed = availableSpeeds.length;
 
   return (
     <div className="dashboard">
       <Header />
-
       <main>
-        <h2>Traffic Overview</h2>
+        <div className="dashboard-intro">
+          <div>
+            <span className="eyebrow">FINLAND · LIVE ROAD MONITOR</span>
+            <h2>Traffic at a glance</h2>
+            <p>Current traffic volume and speed readings from Finnish road stations.</p>
+          </div>
+          <span className="source-pill"><span aria-hidden="true">●</span> Digitraffic data</span>
+        </div>
 
-        <p className="subtitle">
-          Monitor traffic measurements across Finland.
-        </p>
-
-        {/* Refresh traffic data */}
-        <button
-          type="button"
-          onClick={loadTrafficData}
-          disabled={loading}
-        >
-          {loading ? 'Refreshing...' : 'Refresh Data'}
-        </button>
-
-        {/* Loading, error and success messages */}
-        {loading && (
-          <p>Loading traffic measurements...</p>
-        )}
-
-        {error && (
-          <p className="error-message">
-            Error: {error}
-          </p>
-        )}
-
-        {successMessage && (
-          <p className="success-message">
-            {successMessage}
-          </p>
-        )}
-
-        {/* Dashboard statistics */}
-        <section className="stats">
-          <StatCard
-            title="Total Vehicles"
-            value={totalVehicles.toLocaleString()}
-          />
-
-          <StatCard
-            title="Measurement Points"
-            value={trafficData.length}
-          />
-
-          <StatCard
-            title="Average Speed"
-            value={`${averageSpeed} km/h`}
-          />
-        </section>
-
-        {/* Search and filter */}
-        <section className="controls">
-          <input
-            type="text"
-            placeholder="Search traffic location..."
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-          />
-
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-          >
-            <option value="All">All Traffic</option>
-            <option value="Normal">Normal</option>
-            <option value="Heavy">Heavy</option>
-          </select>
-        </section>
-
-        {/* Add or edit measurement form */}
-        <section className="form-section">
-          <h2>
-            {editingId !== null
-              ? 'Edit Traffic Measurement'
-              : 'Add Traffic Measurement'}
-          </h2>
-
-          <form
-            onSubmit={
-              editingId !== null
-                ? handleUpdateMeasurement
-                : handleAddMeasurement
-            }
-          >
-            <input
-              type="text"
-              placeholder="Location name"
-              value={location}
-              onChange={(event) => setLocation(event.target.value)}
-              required
-            />
-
-            <input
-              type="number"
-              placeholder="Number of vehicles"
-              min="0"
-              max="100000"
-              value={vehicles}
-              onChange={(event) => setVehicles(event.target.value)}
-              required
-            />
-
-            <input
-              type="number"
-              placeholder="Average speed (km/h)"
-              min="0"
-              max="300"
-              value={speed}
-              onChange={(event) => setSpeed(event.target.value)}
-              required
-            />
-
-            <select
-              value={status}
-              onChange={(event) => setStatus(event.target.value)}
-            >
-              <option value="Normal">Normal</option>
-              <option value="Heavy">Heavy</option>
-            </select>
-
-            <button type="submit">
-              {editingId !== null
-                ? 'Update Measurement'
-                : 'Add Measurement'}
+        <section className="live-traffic-section" aria-labelledby="live-data-heading">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">LIVE MEASUREMENTS</span>
+              <h2 id="live-data-heading">Road stations</h2>
+              <p>
+                Station names and measurements are supplied by Digitraffic.
+                {lastUpdated && ` Updated ${lastUpdated.toLocaleTimeString()}.`}
+              </p>
+            </div>
+            <button type="button" onClick={loadTrafficData} disabled={loading}>
+              {loading ? 'Updating…' : 'Refresh data'}
             </button>
+          </div>
 
-            {editingId !== null && (
-              <button
-                type="button"
-                onClick={resetForm}
-              >
-                Cancel Editing
-              </button>
-            )}
-          </form>
+          <section className="stats" aria-label="Live traffic summary">
+            <StatCard title="Reporting stations" value={trafficData.length} />
+            <StatCard title="Stations with speed" value={stationsWithSpeed} />
+            <StatCard title="Average reported speed" value={averageSpeed === null ? 'Not available' : `${averageSpeed} km/h`} />
+          </section>
+
+          <div className="station-toolbar">
+            <label htmlFor="station-search">Find a station</label>
+            <input
+              id="station-search"
+              type="search"
+              placeholder="Search by station name or ID"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+            />
+            <span>{filteredTrafficData.length} of {trafficData.length} stations</span>
+          </div>
+
+          {loading && trafficData.length === 0 && (
+            <p className="empty-state" role="status">Loading current station readings…</p>
+          )}
+          {error && <p className="error-message" role="alert">{error}</p>}
+          {!loading && !error && trafficData.length === 0 && (
+            <p className="empty-state">No live station measurements are available right now.</p>
+          )}
+          {trafficData.length > 0 && filteredTrafficData.length === 0 && (
+            <p className="empty-state">No stations match this search.</p>
+          )}
+
+          {filteredTrafficData.length > 0 && (
+            <div className="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Station</th>
+                    <th>Vehicles / hour</th>
+                    <th>Average speed</th>
+                    <th>Measured time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTrafficData.map((station) => (
+                    <tr key={station.stationId}>
+                      <td>
+                        <strong>{station.stationName?.replaceAll('_', ' ') || `Station ${station.stationId}`}</strong>
+                        <span className="station-id">Station ID {station.stationId}</span>
+                      </td>
+                      <td>{Number.isFinite(station.vehiclesPerHour)
+                        ? station.vehiclesPerHour.toLocaleString()
+                        : 'Not available'}</td>
+                      <td>{Number.isFinite(station.averageSpeedKmh)
+                        ? `${station.averageSpeedKmh} km/h`
+                        : 'Not available'}</td>
+                      <td>{station.measuredTime
+                        ? new Date(station.measuredTime).toLocaleString()
+                        : 'Not available'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
-        {/* Traffic measurements table */}
-        <TrafficTable
-          data={filteredTrafficData}
-          onEdit={handleEditMeasurement}
-          onDelete={handleDeleteMeasurement}
-        />
+        <Suspense fallback={<p className="empty-state">Preparing traffic charts…</p>}>
+          <TrafficCharts data={trafficData} />
+        </Suspense>
 
-        <p className="result-count">
-          Showing {filteredTrafficData.length} of {trafficData.length} locations
+        <p className="attribution">
+          Live road traffic data provided by Digitraffic / Fintraffic.
         </p>
       </main>
     </div>
