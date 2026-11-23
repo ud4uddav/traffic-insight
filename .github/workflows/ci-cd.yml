@@ -1,0 +1,123 @@
+name: CI and Azure deployment
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: traffic-insight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Test and build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Test, lint, audit, and build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm test
+          npm run lint
+          npm audit --audit-level=high
+          npm run build
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore, test, and audit backend dependencies
+        run: |
+          dotnet restore backend/TrafficInsight.slnx --warnaserror
+          dotnet test backend/TrafficInsight.slnx --no-restore --configuration Release
+          dotnet list backend/TrafficInsight.slnx package --vulnerable --include-transitive
+
+      - name: Build API container
+        run: docker build --file backend/TrafficInsight.Api/Dockerfile --tag traffic-insight-api:ci .
+
+      - name: Build frontend container
+        run: docker build --file frontend/Dockerfile --tag traffic-insight-web:ci .
+
+  deploy:
+    name: Publish images and deploy to Azure
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      vars.AZURE_RESOURCE_GROUP != '' &&
+      vars.AZURE_ACR_NAME != '' &&
+      vars.AZURE_CONTAINERAPP_ENV != '' &&
+      vars.AZURE_API_APP_NAME != '' &&
+      vars.AZURE_WEB_APP_NAME != '' &&
+      vars.AZURE_PULL_IDENTITY_ID != ''
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Sign in to Azure with GitHub OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Sign in to Azure Container Registry
+        env:
+          AZURE_ACR_NAME: ${{ vars.AZURE_ACR_NAME }}
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+        run: |
+          az acr login --name "$AZURE_ACR_NAME"
+          echo "ACR_LOGIN_SERVER=$(az acr show --name "$AZURE_ACR_NAME" --resource-group "$AZURE_RESOURCE_GROUP" --query loginServer --output tsv)" >> "$GITHUB_ENV"
+
+      - name: Build and publish API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/TrafficInsight.Api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ACR_LOGIN_SERVER }}/traffic-insight-api:${{ github.sha }}
+            ${{ env.ACR_LOGIN_SERVER }}/traffic-insight-api:latest
+
+      - name: Build and publish frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.ACR_LOGIN_SERVER }}/traffic-insight-web:${{ github.sha }}
+            ${{ env.ACR_LOGIN_SERVER }}/traffic-insight-web:latest
+
+      - name: Create or update the Azure Container Apps
+        env:
+          ACR_LOGIN_SERVER: ${{ env.ACR_LOGIN_SERVER }}
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          AZURE_CONTAINERAPP_ENV: ${{ vars.AZURE_CONTAINERAPP_ENV }}
+          AZURE_API_APP_NAME: ${{ vars.AZURE_API_APP_NAME }}
+          AZURE_WEB_APP_NAME: ${{ vars.AZURE_WEB_APP_NAME }}
+          AZURE_PULL_IDENTITY_ID: ${{ vars.AZURE_PULL_IDENTITY_ID }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: bash infra/azure/deploy-container-apps.sh
