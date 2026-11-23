@@ -13,6 +13,7 @@ dist-ssr
 *.local
 
 # Editor directories and files
+.vs/
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -31,6 +32,9 @@ frontend/.env
 # .NET build files
 **/bin/
 **/obj/
+**/TestResults/
+*.coverage
+*.coveragexml
 
 # User-specific files
 *.user

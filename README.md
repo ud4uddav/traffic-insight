@@ -1,109 +1,132 @@
 # Traffic Insight
 
-Traffic Insight is a live Finnish road traffic dashboard. A React/Vite frontend calls a small ASP.NET Core API, which reads current traffic measurements and station metadata from Digitraffic. The dashboard refreshes automatically every minute and can also be refreshed on demand. It does not store or generate traffic measurements.
+Live Finnish road traffic dashboard built with React and ASP.NET Core. It reads current traffic measurements from Digitraffic, refreshes them every minute, and presents station readings and analytics in one place.
 
-## System architecture
+## Features
+
+- Live station readings for vehicle volume and average speed
+- Search by station name or station ID
+- Summary cards and charts based on the latest reported values
+- Clear handling for missing measurements; unavailable values are never shown as zero
+- Station names from Digitraffic metadata, with station ID fallback
+- Read-only design with no manual or generated measurements
+
+## Architecture
 
 ```mermaid
 flowchart LR
-    Visitor[Visitor]
-    Browser[React + Vite dashboard<br/>station search, table, charts]
-    Api[ASP.NET Core API<br/>GET /api/traffic/external]
-    Service[Digitraffic service<br/>maps source fields]
-    Live[Digitraffic TMS live readings]
-    Metadata[Digitraffic TMS station metadata]
-    Cache[(In-memory metadata cache<br/>6 hour lifetime)]
-
-    Visitor --> Browser
-    Browser -->|HTTPS / JSON| Api
-    Api --> Service
-    Service -->|fetch current readings| Live
-    Service -->|cache miss| Metadata
-    Service <--> Cache
-    Service -->|station ID, name, volume, speed or null, timestamp| Api
-    Api -->|JSON response| Browser
+    Visitor[Visitor] --> Browser[React + Vite dashboard]
+    Browser -->|JSON| Api[ASP.NET Core API]
+    Api --> Service[Digitraffic service]
+    Service -->|Current readings| TMS[Digitraffic TMS]
+    Service -->|Station names| Metadata[Digitraffic station metadata]
+    Service <--> Cache[(In-memory metadata cache<br/>6 hours)]
 ```
 
-The browser talks only to this app's API. The API fetches current TMS readings from Digitraffic, looks up station names from its metadata endpoint, and returns a smaller response shaped for the dashboard. Station metadata is cached in memory for six hours; current readings are requested each time the API route is called. The frontend refreshes that route every minute.
+The browser calls the app API. The API fetches live TMS readings and station metadata from Digitraffic, maps them into a compact response, and caches station metadata in memory for six hours. Current readings are fetched for each API request; the frontend refreshes every minute.
 
-### Do we need PostgreSQL?
+### Data storage
 
-No, not for the current feature set. This app displays public, current readings and does not accept or retain user-entered data. Digitraffic is the source of truth, while the only cache is temporary station metadata in the API process. PostgreSQL would add setup and operations without helping this read-only flow.
+This application has **no database**. It does not save traffic history or user data. The only cache is temporary station metadata in the running API process. A persistent database such as PostgreSQL would make sense if the app later needs historical snapshots, accounts, saved preferences, or reports that must remain available when Digitraffic is unavailable.
 
-Add a database later if the product needs to keep its own information, such as historical snapshots, saved stations, user accounts or preferences, annotations, or reports that must remain available when Digitraffic is down. PostgreSQL would be a suitable choice for that persistent application data; it should complement the live feed rather than replace Digitraffic as the source of current readings.
+## Technology
 
-## Requirements
-
-- .NET 10 SDK
-- Node.js 22.12+ and npm
+| Area | Technologies |
+| --- | --- |
+| Frontend | React, Vite, Recharts |
+| Backend | ASP.NET Core Minimal API, .NET 10 |
+| Live data | Digitraffic / Fintraffic TMS |
+| Tests | xUnit backend service tests; frontend ESLint and production build checks |
 
 ## Run locally
 
-1. Start the API from the repository root:
+### Requirements
 
-   ```sh
-   dotnet run --project backend/TrafficInsight.Api
-   ```
+- .NET 10 SDK
+- Node.js 22.12 or later and npm
 
-   The HTTP launch profile uses `http://localhost:5278`. The API provides `/health` and `/api/traffic/external`; Swagger is enabled in Development.
+### 1. Start the API
 
-2. In another terminal, set `frontend/.env`:
+From the repository root:
 
-   ```dotenv
-   VITE_API_URL=http://localhost:5278/api/traffic
-   ```
+```sh
+dotnet run --project backend/TrafficInsight.Api
+```
 
-   The repository includes `frontend/.env.example` with this local value.
+The HTTP launch profile listens at `http://localhost:5278`. Available endpoints:
 
-3. Install and run the frontend:
+- `GET /health` — health status
+- `GET /api/traffic/external` — current station measurements
 
-   ```sh
-   cd frontend
-   npm ci
-   npm run dev
-   ```
+Swagger is available only when the API runs in Development.
 
-   Open the Vite URL, normally `http://localhost:5173`.
+### 2. Configure and start the frontend
 
-## Data behavior
+In a second terminal, create `frontend/.env` using the committed example:
 
-The API reads current TMS station data and station names from Digitraffic. It returns the moving 5 minute average speed as `averageSpeedKmh`, hourly vehicle volume as `vehiclesPerHour`, station names when available, and measurement timestamps. Missing readings remain null and appear as “Not available”; unavailable speed values are excluded from the speed chart. Station metadata is cached in memory for six hours. Live values depend on source availability and sensor coverage.
+```sh
+cp frontend/.env.example frontend/.env
+```
 
-Digitraffic road data documentation: <https://www.digitraffic.fi/en/road-traffic/>. Attribute Digitraffic/Fintraffic when redistributing the open data and review its current license and API usage instructions before release.
+Then install dependencies and start Vite:
 
-## Deployment preparation
+```sh
+cd frontend
+npm ci
+npm run dev
+```
 
-Build the frontend with the production API URL set as `VITE_API_URL`; Vite embeds this value at build time, so a changed API URL requires a new frontend build. Configure the backend with:
+Open the local Vite address shown in the terminal, normally `http://localhost:5173`.
 
-- `AllowedOrigins__0`: the exact deployed frontend origin, such as `https://traffic.example.com`.
-- `ASPNETCORE_ENVIRONMENT=Production`.
+## Data notes
 
-Serve both frontend and API over HTTPS. Keep Swagger restricted to development unless the deployment adds an access policy. No cloud provider or paid service is assumed.
+The API maps Digitraffic's five-minute moving average speed to `averageSpeedKmh` and vehicle count data to `vehiclesPerHour`. Missing source values remain `null`; the UI shows “Not available” and excludes unavailable speed values from the speed chart. Station names may be unavailable, in which case the dashboard uses the station ID. Live availability and sensor coverage depend on Digitraffic.
 
-## Security
+See [Digitraffic road traffic documentation](https://www.digitraffic.fi/en/road-traffic/). Follow its current API usage instructions and attribution/license terms when redistributing the data.
 
-Current protections and design choices:
+## Tests and quality checks
 
-- The frontend contains only the public API URL. Do not put passwords, private API keys, or other secrets in `VITE_*` variables; Vite embeds them into browser files.
-- The backend calls Digitraffic over HTTPS, so the browser does not need to contact the data provider directly.
-- CORS allows configured frontend origins instead of `*`. Set `AllowedOrigins__0` to the exact deployed site origin.
-- Swagger is enabled only in Development, and upstream HTTP or JSON errors are returned without exposing exception details.
-- The dashboard is read-only and has no user accounts or private data, so it currently has no authentication.
+Run backend tests from the repository root:
 
-Limits to understand before a public launch:
+```sh
+dotnet test backend/TrafficInsight.slnx
+```
 
-- CORS is a browser rule, not API access control. Anyone who can reach the API can call its public read endpoint directly.
-- The API does not yet configure rate limiting, an explicit upstream request timeout, or authentication. For a public deployment, add rate limits and monitoring to protect the API and Digitraffic from excessive traffic; configure a bounded upstream timeout. Add authentication only if private or user-specific features are introduced.
-- Enforce HTTPS at the host or reverse proxy, keep dependencies patched, and store deployment configuration in the hosting platform rather than committing secrets.
+Run frontend checks from `frontend/`:
 
-## Testing and checks
+```sh
+npm run lint
+npm run build
+npm audit
+```
 
-The current backend test suite has two unit tests for `DigitrafficService`: station and speed mapping, and behavior when speed is missing or station metadata is unavailable. It does not currently include API endpoint integration tests or browser end-to-end tests. The frontend has lint and production-build checks but no component test runner yet.
+Check .NET dependencies for known vulnerabilities:
 
-Run the current checks:
+```sh
+dotnet list backend/TrafficInsight.slnx package --vulnerable --include-transitive
+```
 
-- From `frontend/`: `npm run lint`, `npm run build`, and `npm audit`.
-- From the repository root: `dotnet test backend/TrafficInsight.slnx`.
-- Check .NET dependencies with `dotnet list backend/TrafficInsight.slnx package --vulnerable --include-transitive`.
+The current backend unit tests cover service mapping, missing speed values, and metadata fallback. The project does not yet have API integration tests or browser end-to-end tests.
 
-For stronger release confidence, add tests for the API's success and upstream-failure responses, frontend rendering/search/null-speed states, and an end-to-end run against a controlled test response. Tests should not depend on live Digitraffic availability.
+## Security and deployment notes
+
+- The dashboard is public and read-only; it has no user accounts or private data.
+- CORS uses configured origins. The local default allows Vite at `http://localhost:5173`; production must set `AllowedOrigins__0` to the exact deployed frontend origin.
+- Swagger is disabled outside Development.
+- The API calls Digitraffic over HTTPS and returns sanitized upstream errors.
+- CORS is not API access control. Before a public launch, configure an upstream timeout, request rate limiting, monitoring, and HTTPS at the hosting platform.
+- `VITE_*` values are included in browser assets. Never place passwords, private keys, or other secrets in them.
+- The repository is not yet packaged for Docker or connected to a deployment pipeline.
+
+## Repository layout
+
+```text
+backend/
+  TrafficInsight.Api/          ASP.NET Core API and Digitraffic integration
+  TrafficInsight.Api.Tests/    Backend unit tests
+  TrafficInsight.slnx          .NET solution
+frontend/
+  src/                          React dashboard and chart components
+  public/                       Static public assets
+  .env.example                  Local API URL example
+```
