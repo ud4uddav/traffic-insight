@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: traffic-insight-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: main
+    autoDeployTrigger: checksPass
+    dockerfilePath: ./backend/TrafficInsight.Api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_HTTP_PORTS
+        value: "10000"
+      - key: PORT
+        value: "10000"
+      - key: AllowedOrigins__0
+        value: https://traffic-insight-dashboard.onrender.com
+
+  - type: web
+    name: traffic-insight-dashboard
+    runtime: static
+    branch: main
+    autoDeployTrigger: checksPass
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
+      - key: VITE_API_URL
+        value: https://traffic-insight-api.onrender.com/api/traffic

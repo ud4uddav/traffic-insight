@@ -6,6 +6,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_HTTP_PORTS: 8080
+      PORT: 8080
       Digitraffic__BaseUrl: ${DIGITRAFFIC_BASE_URL:-https://tie.digitraffic.fi/}
       Digitraffic__RequestTimeoutSeconds: ${DIGITRAFFIC_TIMEOUT_SECONDS:-15}
       Traffic__RateLimitPerMinute: ${TRAFFIC_RATE_LIMIT_PER_MINUTE:-120}

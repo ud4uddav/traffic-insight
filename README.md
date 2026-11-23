@@ -145,9 +145,11 @@ The backend unit tests cover service mapping, missing speed values, and metadata
 
 ## Continuous integration and hosting
 
-GitHub Actions runs on pushes and pull requests. It tests, lints, audits, and builds the frontend, tests and checks the backend dependencies, and builds both Docker images. It does not deploy to a cloud platform.
+GitHub Actions runs on pushes and pull requests. It tests, lints, audits, and builds the frontend, tests and checks the backend dependencies, and builds both Docker images. Render deploys only after the required GitHub checks pass.
 
-The application has no database and does not need PostgreSQL. Render deployment can use a static site for React and a web service for the .NET API. Set `VITE_API_URL` on the frontend to the API's `/api/traffic` URL, and set `AllowedOrigins__0` on the API to the exact frontend URL. The API's `ASPNETCORE_HTTP_PORTS` must match the web service's configured port. The free Render web-service plan sleeps after inactivity, so the first API request may take about a minute to wake it.
+The application has no database and does not need PostgreSQL. [`render.yaml`](render.yaml) defines a free React static site and a free .NET Docker web service in Frankfurt. To deploy, connect the GitHub repository to Render and create a Blueprint from `main`. The Blueprint sets the API's allowed frontend origin and the frontend's API URL. If Render assigns different hostnames, update those two values to the actual service URLs.
+
+The API is publicly reachable but read-only, rate-limited, and serves public traffic data; CORS permits the dashboard origin. Render provides HTTPS. The free API service sleeps after 15 minutes without requests and may take about a minute to wake on the next request. Free services are intended for testing and hobby use, not production workloads.
 
 ## Repository layout
 
@@ -162,4 +164,5 @@ frontend/
   .env.example                  Local API URL example
 compose.yaml                    Local multi-container setup
 .github/workflows/ci.yml        Automated tests and Docker builds
+render.yaml                     Render deployment Blueprint
 ```

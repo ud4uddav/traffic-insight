@@ -17,13 +17,14 @@ RUN apk add --no-cache curl
 WORKDIR /app
 COPY --from=build --chown=$APP_UID:$APP_UID /app/publish .
 
-ENV ASPNETCORE_HTTP_PORTS=8080 \
-    ASPNETCORE_ENVIRONMENT=Production
+ENV ASPNETCORE_HTTP_PORTS=10000 \
+    ASPNETCORE_ENVIRONMENT=Production \
+    PORT=10000
 
-EXPOSE 8080
+EXPOSE 10000
 USER $APP_UID
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl --fail --silent http://127.0.0.1:8080/health || exit 1
+    CMD ["sh", "-c", "curl --fail --silent http://127.0.0.1:${PORT:-8080}/health || exit 1"]
 
 ENTRYPOINT ["dotnet", "TrafficInsight.Api.dll"]
