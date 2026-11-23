@@ -136,29 +136,30 @@ The backend unit tests cover service mapping, missing speed values, and metadata
 ## Security and deployment notes
 
 - The dashboard is public and read-only; it has no user accounts or private data.
-- CORS uses configured origins. The local default allows Vite at `http://localhost:5173`; production deployment sets `AllowedOrigins__0` to the exact frontend origin.
+- CORS uses configured origins. The local default allows Vite at `http://localhost:5173`; a hosted deployment must set `AllowedOrigins__0` to the exact frontend origin.
 - Swagger is disabled outside Development.
 - The API requires an HTTPS upstream URL, applies a configurable 15-second Digitraffic timeout, rate limits traffic requests, and returns sanitized upstream errors.
 - Production API logs are structured JSON. Health endpoints are available at `/health` (API) and `/healthz` (frontend).
-- CORS is not API access control. In Azure, the frontend is public and the API uses internal ingress; HTTPS is provided by Azure Container Apps.
+- CORS is not API access control. The API is read-only and rate-limited; HTTPS should be provided by the hosting platform.
 - `VITE_*` values are included in browser assets. Never place passwords, private keys, or other secrets in them.
-- GitHub Actions uses Azure OIDC when configured; no long-lived Azure password is stored in the repository.
 
-## CI/CD and Azure
+## Continuous integration and hosting
 
-Every push and pull request runs frontend tests, lint, dependency audit and production build; backend tests and dependency checks; and both Docker image builds. Pushes to `main` publish commit-tagged images to Azure Container Registry and update the Azure Container Apps after the GitHub OIDC settings and repository variables are configured. A manual workflow run on `main` is available for the first deployment.
+GitHub Actions runs on pushes and pull requests. It tests, lints, audits, and builds the frontend, tests and checks the backend dependencies, and builds both Docker images. It does not deploy to a cloud platform.
 
-The app does not need PostgreSQL because it does not save traffic readings. Azure setup, OIDC permissions, deployment flow, logs, health checks, and cost guidance are in [`infra/azure/setup.md`](infra/azure/setup.md). Azure resources are created only when you run the setup script and configure the deployment workflow.
+The application has no database and does not need PostgreSQL. Render deployment can use a static site for React and a web service for the .NET API. Set `VITE_API_URL` on the frontend to the API's `/api/traffic` URL, and set `AllowedOrigins__0` on the API to the exact frontend URL. The API's `ASPNETCORE_HTTP_PORTS` must match the web service's configured port. The free Render web-service plan sleeps after inactivity, so the first API request may take about a minute to wake it.
 
 ## Repository layout
 
 ```text
 backend/
-  TrafficInsight.Api/          ASP.NET Core API and Digitraffic integration
+  TrafficInsight.Api/         ASP.NET Core API and Digitraffic integration
   TrafficInsight.Api.Tests/    Backend unit tests
   TrafficInsight.slnx          .NET solution
 frontend/
-  src/                          React dashboard and chart components
-  public/                       Static public assets
+  src/                         React dashboard and chart components
+  public/                      Static public assets
   .env.example                  Local API URL example
+compose.yaml                    Local multi-container setup
+.github/workflows/ci.yml        Automated tests and Docker builds
 ```

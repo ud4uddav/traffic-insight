@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: traffic-insight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Test and build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Test, lint, audit, and build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm test
+          npm run lint
+          npm audit --audit-level=high
+          npm run build
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore, test, and audit backend dependencies
+        run: |
+          dotnet restore backend/TrafficInsight.slnx --warnaserror
+          dotnet test backend/TrafficInsight.slnx --no-restore --configuration Release
+          dotnet list backend/TrafficInsight.slnx package --vulnerable --include-transitive
+
+      - name: Build API container
+        run: docker build --file backend/TrafficInsight.Api/Dockerfile --tag traffic-insight-api:ci .
+
+      - name: Build frontend container
+        run: docker build --file frontend/Dockerfile --tag traffic-insight-web:ci .
