@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0-alpine AS build
 WORKDIR /src
 
 COPY backend/TrafficInsight.Api/TrafficInsight.Api.csproj backend/TrafficInsight.Api/
