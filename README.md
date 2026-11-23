@@ -36,9 +36,9 @@ This application has **no database**. It does not save traffic history or user d
 | Frontend | React, Vite, Recharts |
 | Backend | ASP.NET Core Minimal API, .NET 10 |
 | Live data | Digitraffic / Fintraffic TMS |
-| Tests | xUnit backend service tests; frontend ESLint and production build checks |
+| Tests | xUnit backend tests; Node.js frontend unit tests, ESLint, and production build checks |
 
-## Run locally
+## Run locally without Docker
 
 ### Requirements
 
@@ -78,9 +78,33 @@ npm run dev
 
 Open the local Vite address shown in the terminal, normally `http://localhost:5173`.
 
+## Run with Docker Compose
+
+Docker Desktop or another Docker Engine with Compose v2 is required.
+
+```sh
+docker compose up --build
+```
+
+Open [http://localhost:8080](http://localhost:8080). The frontend container serves the React build and proxies `/api` requests to the private API container. The API is not published as a host port. Stop the services with `Ctrl+C`, then run `docker compose down`.
+
+Optional local settings can be placed in a root `.env` file, which is ignored by Git:
+
+```dotenv
+FRONTEND_PORT=8080
+ALLOWED_ORIGIN=http://localhost:8080
+DIGITRAFFIC_BASE_URL=https://tie.digitraffic.fi/
+DIGITRAFFIC_TIMEOUT_SECONDS=15
+TRAFFIC_RATE_LIMIT_PER_MINUTE=120
+```
+
+The API also supports standard .NET environment variable configuration directly: `Digitraffic__BaseUrl`, `Digitraffic__RequestTimeoutSeconds`, `Traffic__RateLimitPerMinute`, and `AllowedOrigins__0`. Values in `frontend/.env` are public browser settings; do not place secrets in them.
+
 ## Data notes
 
 The API maps Digitraffic's five-minute moving average speed to `averageSpeedKmh` and vehicle count data to `vehiclesPerHour`. Missing source values remain `null`; the UI shows “Not available” and excludes unavailable speed values from the speed chart. Station names may be unavailable, in which case the dashboard uses the station ID. Live availability and sensor coverage depend on Digitraffic.
+
+The dashboard's summary speed is the arithmetic mean of stations with a reported speed. It is not a traffic-volume-weighted national average.
 
 See [Digitraffic road traffic documentation](https://www.digitraffic.fi/en/road-traffic/). Follow its current API usage instructions and attribution/license terms when redistributing the data.
 
@@ -96,6 +120,7 @@ Run frontend checks from `frontend/`:
 
 ```sh
 npm run lint
+npm test
 npm run build
 npm audit
 ```
@@ -106,17 +131,24 @@ Check .NET dependencies for known vulnerabilities:
 dotnet list backend/TrafficInsight.slnx package --vulnerable --include-transitive
 ```
 
-The current backend unit tests cover service mapping, missing speed values, and metadata fallback. The project does not yet have API integration tests or browser end-to-end tests.
+The backend unit tests cover service mapping, missing speed values, and metadata fallback. Frontend unit tests cover average-speed calculation and missing-speed handling. The project does not yet have API integration tests or browser end-to-end tests.
 
 ## Security and deployment notes
 
 - The dashboard is public and read-only; it has no user accounts or private data.
-- CORS uses configured origins. The local default allows Vite at `http://localhost:5173`; production must set `AllowedOrigins__0` to the exact deployed frontend origin.
+- CORS uses configured origins. The local default allows Vite at `http://localhost:5173`; production deployment sets `AllowedOrigins__0` to the exact frontend origin.
 - Swagger is disabled outside Development.
-- The API calls Digitraffic over HTTPS and returns sanitized upstream errors.
-- CORS is not API access control. Before a public launch, configure an upstream timeout, request rate limiting, monitoring, and HTTPS at the hosting platform.
+- The API requires an HTTPS upstream URL, applies a configurable 15-second Digitraffic timeout, rate limits traffic requests, and returns sanitized upstream errors.
+- Production API logs are structured JSON. Health endpoints are available at `/health` (API) and `/healthz` (frontend).
+- CORS is not API access control. In Azure, the frontend is public and the API uses internal ingress; HTTPS is provided by Azure Container Apps.
 - `VITE_*` values are included in browser assets. Never place passwords, private keys, or other secrets in them.
-- The repository is not yet packaged for Docker or connected to a deployment pipeline.
+- GitHub Actions uses Azure OIDC when configured; no long-lived Azure password is stored in the repository.
+
+## CI/CD and Azure
+
+Every push and pull request runs frontend tests, lint, dependency audit and production build; backend tests and dependency checks; and both Docker image builds. Pushes to `main` publish commit-tagged images to Azure Container Registry and update the Azure Container Apps after the GitHub OIDC settings and repository variables are configured. A manual workflow run on `main` is available for the first deployment.
+
+The app does not need PostgreSQL because it does not save traffic readings. Azure setup, OIDC permissions, deployment flow, logs, health checks, and cost guidance are in [`infra/azure/setup.md`](infra/azure/setup.md). Azure resources are created only when you run the setup script and configure the deployment workflow.
 
 ## Repository layout
 

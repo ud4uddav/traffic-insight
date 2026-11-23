@@ -132,6 +132,11 @@ public class DigitrafficService
             // Live measurements are still useful when metadata is temporarily unavailable.
             return new Dictionary<int, string>();
         }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // A metadata timeout must not prevent otherwise valid readings from being returned.
+            return new Dictionary<int, string>();
+        }
         catch (JsonException)
         {
             // Fall back to station IDs if the metadata response is incomplete or changes shape.

@@ -1,10 +1,11 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import './App.css';
 import Header from './components/Header';
 import StatCard from './components/StatCard';
+import { averageReportedSpeed } from './utils/trafficMetrics';
 
 const TrafficCharts = lazy(() => import('./components/TrafficCharts'));
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || '/api/traffic';
 
 function App() {
   const [trafficData, setTrafficData] = useState([]);
@@ -12,13 +13,18 @@ function App() {
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
+  const activeRequest = useRef(null);
 
   async function loadTrafficData() {
+    if (activeRequest.current) return;
+
+    const controller = new AbortController();
+    activeRequest.current = controller;
     setLoading(true);
     setError('');
 
     try {
-      const response = await fetch(`${API_URL}/external`);
+      const response = await fetch(`${API_URL}/external`, { signal: controller.signal });
       if (!response.ok) {
         throw new Error('Live traffic data could not be loaded. Try again shortly.');
       }
@@ -29,9 +35,14 @@ function App() {
       setTrafficData(data);
       setLastUpdated(new Date());
     } catch (loadError) {
-      setError(loadError.message || 'Live traffic data could not be loaded.');
+      if (loadError.name !== 'AbortError') {
+        setError(loadError.message || 'Live traffic data could not be loaded.');
+      }
     } finally {
-      setLoading(false);
+      if (activeRequest.current === controller) {
+        activeRequest.current = null;
+        setLoading(false);
+      }
     }
   }
 
@@ -41,6 +52,9 @@ function App() {
     return () => {
       window.clearTimeout(timer);
       window.clearInterval(refreshTimer);
+      const request = activeRequest.current;
+      activeRequest.current = null;
+      request?.abort();
     };
   }, []);
 
@@ -50,13 +64,8 @@ function App() {
     return searchValue.includes(query);
   });
 
-  const availableSpeeds = trafficData
-    .map((station) => station.averageSpeedKmh)
-    .filter(Number.isFinite);
-  const averageSpeed = availableSpeeds.length > 0
-    ? Math.round(availableSpeeds.reduce((total, speed) => total + speed, 0) / availableSpeeds.length)
-    : null;
-  const stationsWithSpeed = availableSpeeds.length;
+  const averageSpeed = averageReportedSpeed(trafficData);
+  const stationsWithSpeed = trafficData.filter((station) => Number.isFinite(station.averageSpeedKmh)).length;
 
   return (
     <div className="dashboard">
