@@ -12,7 +12,7 @@ RUN dotnet publish TrafficInsight.Api.csproj \
     --output /app/publish \
     /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0-alpine AS runtime
 RUN apk add --no-cache curl
 WORKDIR /app
 COPY --from=build --chown=$APP_UID:$APP_UID /app/publish .
